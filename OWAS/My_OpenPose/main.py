@@ -7,6 +7,7 @@ from sys import platform
 import argparse
 import time
 import pprint
+import numpy as np
 class main(My_OpenPose.openpose):
 	
 	def add_path(self):
@@ -44,15 +45,15 @@ class main(My_OpenPose.openpose):
 			opWrapper = op.WrapperPython()
 			opWrapper.configure(self.params)
 			opWrapper.start()
-			print("AAAAAA  1")
+			
 			# Process Image
 			datum = op.Datum()
-			print("AAAAAA  2")
+			
 			print(self.args[0].image_path)
-			imageToProcess = cv2.imread("D.jpg")
-			print("AAAAAA  3")
+			imageToProcess = cv2.imread("E.jpg")
+			
 			datum.cvInputData = imageToProcess
-			print("AAAAAA  4")
+		
 			opWrapper.emplaceAndPop([datum])
 			
 			# Display Image
@@ -63,8 +64,6 @@ class main(My_OpenPose.openpose):
 			#print("Right hand keypoints: \n" + str(datum.handKeypoints[1]))
 
 
-			#print( abs(datum.poseKeypoints[0][1][0] - datum.poseKeypoints[0][8][0]))
-			#print( datum.poseKeypoints[0][8][0] - datum.poseKeypoints[0][1][0])
 			#背部の判定
 			if abs(datum.poseKeypoints[0][1][0] - datum.poseKeypoints[0][8][0]) <= 10:
 				posture[0] = 1
@@ -77,21 +76,60 @@ class main(My_OpenPose.openpose):
 			#print(datum.poseKeypoints[0][5])
 			#print(datum.poseKeypoints[0][6])
 
+
 			#上肢の判定
-			if (datum.poseKeypoints[0][2][1] < datum.poseKeypoints[0][3][1]) and (datum.poseKeypoints[0][5][1] < datum.poseKeypoints[0][6][1]):
-				posture[1] = 1
-			elif(datum.poseKeypoints[0][2][1] < datum.poseKeypoints[0][3][1]) or (datum.poseKeypoints[0][5][1] < datum.poseKeypoints[0][6][1]):
-				posture[1] = 2
-			elif(datum.poseKeypoints[0][2][1] > datum.poseKeypoints[0][3][1]) and (datum.poseKeypoints[0][5][1] > datum.poseKeypoints[0][6][1]):
-				posture[1] = 3
+			empty_list = np.array([0,0,0])
+			check = True
+			check_num = 0
+			front_num = 0
+			back_num = 0
+			arm_chek_keypoint =[2,3,5,6]
+			for i in arm_chek_keypoint:
+				if np.allclose(empty_list,datum.poseKeypoints[0][i]) == True:
+					check = False;
+					check_num = i
+					break
+
+			if check == True:
+				
+				if (datum.poseKeypoints[0][2][1] < datum.poseKeypoints[0][3][1]) and (datum.poseKeypoints[0][5][1] < datum.poseKeypoints[0][6][1]):
+					posture[1] = 1
+				elif(datum.poseKeypoints[0][2][1] < datum.poseKeypoints[0][3][1]) or (datum.poseKeypoints[0][5][1] < datum.poseKeypoints[0][6][1]):
+					posture[1] = 2
+				elif(datum.poseKeypoints[0][2][1] > datum.poseKeypoints[0][3][1]) and (datum.poseKeypoints[0][5][1] > datum.poseKeypoints[0][6][1]):
+					posture[1] = 3
+
+			else:
+				print("A")
+				front_num,back_num = i-1,i+1
+				print(front_num,back_num)
+				index_f = [x for i ,x in enumerate(arm_chek_keypoint) if x == front_num]
+				index_b = [x for i ,x in enumerate(arm_chek_keypoint) if x == back_num]
+				print(index_f,index_b)
+				if index_f ==[]:
+					if index_b == []:
+						print("error")
+						sys.exit()
+
+					else:
+						arm_chek_keypoint.remove(back_num)
+				else:
+					arm_chek_keypoint.remove(front_num)
+			
+				arm_chek_keypoint.remove(check_num)
+				
+				if datum.poseKeypoints[0][arm_chek_keypoint[0]][1] < datum.poseKeypoints[0][arm_chek_keypoint[1]][1]:
+					posture[1] = 1
+				elif datum.poseKeypoints[0][arm_chek_keypoint[0]][1] > datum.poseKeypoints[0][arm_chek_keypoint[1]][1]:
+					posture[1] = 2
+				else:
+					posture[1] = -1
+
 
 
 			#下肢の判定
-			print(datum.poseKeypoints[0][9][0])
-			print(datum.poseKeypoints[0][10][0])
-			print(datum.poseKeypoints[0][11][0])
 
-
+			
 			print(max(datum.poseKeypoints[0][10][0],datum.poseKeypoints[0][9][0],datum.poseKeypoints[0][11][0]))
 			if abs(datum.poseKeypoints[0][9][0]-datum.poseKeypoints[0][10][0]) > abs(datum.poseKeypoints[0][9][1]-datum.poseKeypoints[0][10][1]) and abs(datum.poseKeypoints[0][12][0]-datum.poseKeypoints[0][13][0]) > abs(datum.poseKeypoints[0][12][1]-datum.poseKeypoints[0][13][1]) :
 				posture[2] = 1
@@ -101,7 +139,9 @@ class main(My_OpenPose.openpose):
 				posture[2] = 4
 			elif (datum.poseKeypoints[0][10][1] > datum.poseKeypoints[0][24][1]) or (datum.poseKeypoints[0][13][1] > datum.poseKeypoints[0][21][1] ):
 				posture[2] = 6
-			print(posture)
+			print("姿勢コード",posture)
+
+			cv2.namedWindow("OpenPose 1.5.0 - Tutorial Python API",cv2.WINDOW_NORMAL)
 			cv2.imshow("OpenPose 1.5.0 - Tutorial Python API", datum.cvOutputData)
 			cv2.waitKey(0)
 		except Exception as e:
